@@ -1,0 +1,21 @@
+{% macro username(name) -%}
+<input
+  type="text"
+  maxlength="50"
+  minlength="3"
+  id="{{ name }}"
+  name="{{ name }}"
+  class="form-control"
+  required
+/>
+{%- endmacro %}
+
+{% macro currency(max, name) -%}
+<input
+  type="number"
+  name="{{ name }}"
+  id="{{ name }}"
+  value="1.00"
+  class="form-control"
+/>
+{%- endmacro %}

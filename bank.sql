@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Aug 09, 2021 at 01:30 PM
+-- Generation Time: Aug 09, 2021 at 03:20 PM
 -- Server version: 10.5.11-MariaDB-1
 -- PHP Version: 7.4.21
 
@@ -30,13 +30,21 @@ SET time_zone = "+00:00";
 CREATE TABLE `bank_transfers` (
   `id` int(11) NOT NULL,
   `user_id` int(11) NOT NULL,
-  `amount` int(11) NOT NULL,
-  `balance` int(11) NOT NULL DEFAULT 0,
+  `amount` double UNSIGNED NOT NULL,
+  `balance` double UNSIGNED NOT NULL,
   `to_user_id` int(11) DEFAULT NULL,
-  `comment` varchar(255) DEFAULT NULL,
-  `type` int(11) NOT NULL DEFAULT 0,
+  `reason` varchar(255) DEFAULT NULL,
+  `type` tinyint(1) NOT NULL DEFAULT 0,
   `date` int(11) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+--
+-- Dumping data for table `bank_transfers`
+--
+
+INSERT INTO `bank_transfers` (`id`, `user_id`, `amount`, `balance`, `to_user_id`, `reason`, `type`, `date`) VALUES
+(3, 1, 1, 5, NULL, NULL, 0, 1628538962),
+(4, 1, 1, 4, NULL, NULL, 0, 1628540145);
 
 -- --------------------------------------------------------
 
@@ -49,7 +57,7 @@ CREATE TABLE `bank_users` (
   `username` varchar(50) NOT NULL,
   `password` varchar(255) NOT NULL,
   `salt` varchar(88) NOT NULL,
-  `balance` int(11) NOT NULL DEFAULT 0
+  `balance` double UNSIGNED NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
@@ -57,7 +65,7 @@ CREATE TABLE `bank_users` (
 --
 
 INSERT INTO `bank_users` (`id`, `username`, `password`, `salt`, `balance`) VALUES
-(1, 'test', 'lwPTIpe37ZmoMNsSIkkCB1Cb+rNBo2qazKx0EEo2zxHcnFCsHdCRd+tkkjPic1SaYx4sVUj4xWlG/IjosITR4Q==', '1BQwWcmd+XKwTO0IQ4JPfKpzZ/TKZUUucEvPaxIoZAZr1ao3px+wbK34Wkwz9Z/1V4fkViu5SgFnRLSxvmzFVw==', 12);
+(1, 'test', 'lwPTIpe37ZmoMNsSIkkCB1Cb+rNBo2qazKx0EEo2zxHcnFCsHdCRd+tkkjPic1SaYx4sVUj4xWlG/IjosITR4Q==', '1BQwWcmd+XKwTO0IQ4JPfKpzZ/TKZUUucEvPaxIoZAZr1ao3px+wbK34Wkwz9Z/1V4fkViu5SgFnRLSxvmzFVw==', 4);
 
 --
 -- Indexes for dumped tables
@@ -85,7 +93,7 @@ ALTER TABLE `bank_users`
 -- AUTO_INCREMENT for table `bank_transfers`
 --
 ALTER TABLE `bank_transfers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `bank_users`

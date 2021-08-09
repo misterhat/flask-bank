@@ -1,3 +1,19 @@
 {% include 'header.html' %}
-  Test
+{% import 'controls.html' as controls %}
+<div style="max-width: 540px; margin: auto">
+  <h2>Withdraw</h2>
+  {% if message %}
+  <div class="alert alert-{{ message_type }}">{{ message }}</div>
+  {% endif %}
+  <form method="post" action="">
+    <div class="mb-3">
+      <label for="username" class="form-label">Amount:</label>
+      {{ controls.currency(balance[1:-1], "amount") }}
+    </div>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <input type="submit" class="btn btn-primary" value="Withdraw" />
+  </form>
+  <p class="float-end"><strong>Current Balance:</strong> {{ balance }}</p>
+  <div class="clearfix"></div>
+</div>
 {% include 'footer.html' %}

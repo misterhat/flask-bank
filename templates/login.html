@@ -1,4 +1,5 @@
 {% include 'header.html' %}
+{% import 'controls.html' as controls %}
 <div style="max-width: 540px; margin: auto">
   {% if message %}
   <div class="alert alert-danger">{{ message }}</div>
@@ -6,15 +7,7 @@
   <form method="post" action="">
     <div class="mb-3">
       <label for="username" class="form-label">Username:</label>
-      <input
-        type="text"
-        maxlength="50"
-        minlength="3"
-        id="username"
-        name="username"
-        class="form-control"
-        required
-      />
+      {{ controls.username("username") }}
     </div>
     <div class="mb-3">
       <label for="password" class="form-label">Password:</label>
@@ -27,6 +20,7 @@
         required
       />
     </div>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <input type="submit" class="btn btn-primary" value="Login" />
   </form>
 </div>

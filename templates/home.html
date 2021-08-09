@@ -1,5 +1,6 @@
 {% include 'header.html' %}
-{% if activity|length == 0 %}
+<h2>Activity</h2>
+{% if activities|length == 0 %}
 <div class="alert alert-info">No bank activity yet!</div>
 {% else %}
 <table class="table">
@@ -12,12 +13,14 @@
     </tr>
   </thead>
   <tbody>
+    {% for activity in activities %}
     <tr>
-      <td>Withdraw</td>
-      <td>$100.00</td>
-      <td>$500.00</td>
-      <td>Aug 6, 2015 11:15</td>
+      <td>{{ activity.type }}</td>
+      <td>{{ activity.amount }}</td>
+      <td>{{ activity.balance }}</td>
+      <td>{{ activity.date }}</td>
     </tr>
+    {% endfor %}
   </tbody>
 </table>
 <br />
