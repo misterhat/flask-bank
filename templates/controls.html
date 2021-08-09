@@ -13,6 +13,7 @@
 {% macro currency(max, name) -%}
 <input
   type="number"
+  max="{{ max }}"
   name="{{ name }}"
   id="{{ name }}"
   value="1.00"

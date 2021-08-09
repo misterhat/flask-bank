@@ -1,23 +1,24 @@
-{% include 'header.html' %}
-{% import 'controls.html' as controls %}
+{% include 'header.html' %} {% import 'controls.html' as controls %}
 <div style="max-width: 540px; margin: auto">
   <h2>Transfer</h2>
   <form method="post" action="">
-    <div class="mb-3">
-      <label for="username" class="form-label">Username:</label>
-      {{ controls.username("username") }}
-    </div>
-    <div class="mb-3">
-      <label for="reason">Reason:</label>
-      <textarea class="form-control" id="reason"></textarea>
-    </div>
-    <div class="mb-3">
-      <label for="username" class="form-label">Amount:</label>
-      {{ controls.currency(balance[1:-1], "amount") }}
-    </div>
-    <input type="submit" class="btn btn-primary" value="Transfer" />
+      <div class="mb-3">
+          <label for="username" class="form-label">Username:</label>
+          {{ controls.username('username') }}
+      </div>
+      <div class="mb-3">
+          <label for="reason">Reason:</label>
+          <textarea class="form-control" id="reason"></textarea>
+      </div>
+      <div class="mb-3">
+          <label for="username" class="form-label">Amount:</label>
+          {{ controls.currency(balance, 'amount') }}
+      </div>
+      <input type="submit" class="btn btn-primary" value="Transfer" />
   </form>
-  <p class="float-end"><strong>Current Balance:</strong> {{ balance }}</p>
+  <p class="float-end">
+      <strong>Current Balance:</strong> {{ balance_formatted }}
+  </p>
   <div class="clearfix"></div>
 </div>
 {% include 'footer.html' %}

@@ -8,12 +8,14 @@
   <form method="post" action="">
     <div class="mb-3">
       <label for="username" class="form-label">Amount:</label>
-      {{ controls.currency(balance[1:-1], "amount") }}
+      {{ controls.currency(balance, "amount") }}
     </div>
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <input type="submit" class="btn btn-primary" value="Withdraw" />
   </form>
-  <p class="float-end"><strong>Current Balance:</strong> {{ balance }}</p>
+  <p class="float-end">
+      <strong>Current Balance:</strong> {{ balance_formatted }}
+  </p>
   <div class="clearfix"></div>
 </div>
 {% include 'footer.html' %}

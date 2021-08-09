@@ -1,15 +1,20 @@
-{% include 'header.html' %}
-{% import 'controls.html' as controls %}
+{% include 'header.html' %} {% import 'controls.html' as controls %}
 <div style="max-width: 540px; margin: auto">
   <h2>Deposit</h2>
+  {% if message %}
+  <div class="alert alert-success">{{ message }}</div>
+  {% endif %}
   <form method="post" action="">
-    <div class="mb-3">
-      <label for="username" class="form-label">Amount:</label>
-      {{ controls.currency(balance[1:-1], "amount") }}
-    </div>
-    <input type="submit" class="btn btn-primary" value="Deposit" />
+      <div class="mb-3">
+          <label for="username" class="form-label">Amount:</label>
+          {{ controls.currency('', 'amount') }}
+      </div>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+      <input type="submit" class="btn btn-primary" value="Deposit" />
   </form>
-  <p class="float-end"><strong>Current Balance:</strong> {{ balance }}</p>
+  <p class="float-end">
+      <strong>Current Balance:</strong> {{ balance_formatted }}
+  </p>
   <div class="clearfix"></div>
 </div>
 {% include 'footer.html' %}

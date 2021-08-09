@@ -41,13 +41,18 @@ WHERE `username` = %s"""
 
 balance_stmt = "SELECT `balance` FROM `bank_users` WHERE `id` = %s"
 
-transfers_stmt = """SELECT `bank_transfers`.*, `bank_users`.`username` as `to_username` FROM
+transfers_get_stmt = """SELECT `bank_transfers`.*, `bank_users`.`username` AS
+`to_username` FROM
 `bank_transfers` LEFT JOIN `bank_users` ON `bank_users`.`id` =
 `bank_transfers`.`to_user_id` WHERE `user_id` = %s ORDER BY `date` DESC"""
 
-withdraw_user_stmt = "UPDATE `bank_users` SET `balance` = `balance` - %s"
+withdraw_user_stmt = """UPDATE `bank_users` SET `balance` = `balance` - %s
+WHERE `id` = %s"""
 
-withdraw_transfers_stmt = """INSERT INTO `bank_transfers` (`user_id`,
+deposit_user_stmt = """UPDATE `bank_users` SET `balance` = `balance` + %s
+WHERE `id` = %s """
+
+transfers_add_stmt = """INSERT INTO `bank_transfers` (`user_id`,
 `amount`, `balance`, `to_user_id`, `reason`, `type`, `date`) VALUES
 (%s, %s, %s, %s, %s, %s, %s)"""
 
@@ -83,8 +88,6 @@ def get_balance(id):
     if res:
         balance = res[0]
 
-    balance = format_currency(balance)
-
     return balance
 
 @app.route("/")
@@ -94,20 +97,24 @@ def home():
 
     activities = []
 
-    res = cursor.execute(transfers_stmt, session["user"]["id"])
+    res = cursor.execute(transfers_get_stmt, session["user"]["id"])
     res = cursor.fetchall()
 
     for row in res:
         type = format_type(row[6])
+        amount = format_currency(row[2])
+
+        if row[6] == WITHDRAW:
+            amount = "-" + amount
 
         activities.append({
             "type": type,
-            "amount": format_currency(row[2]),
+            "amount": amount,
             "balance": format_currency(row[3]),
             "date": format_date(row[7])
         })
 
-    balance = get_balance(session["user"]["id"])
+    balance = format_currency(get_balance(session["user"]["id"]))
 
     return render_template(
         "home.html",
@@ -163,24 +170,29 @@ def withdraw():
     message = None
     message_type = "danger"
     balance = get_balance(session["user"]["id"])
-    balance_unformatted = float(balance[1:-1])
 
     if request.method == "POST":
         withdraw_req = float(request.form["amount"])
 
-        if (withdraw_req > balance_unformatted):
+        if (withdraw_req > balance):
             message = "You don't have that much money!"
         else:
-            balance_unformatted -= withdraw_req
-
-            cursor.execute(withdraw_user_stmt, withdraw_req)
+            balance = withdraw_req
 
             cursor.execute(
-                withdraw_transfers_stmt,
+                withdraw_user_stmt,
+                (
+                    withdraw_req,
+                    session["user"]["id"]
+                )
+            )
+
+            cursor.execute(
+                transfers_add_stmt,
                 (
                     session["user"]["id"],
                     withdraw_req,
-                    balance_unformatted,
+                    balance,
                     None,
                     None,
                     WITHDRAW,
@@ -194,29 +206,59 @@ def withdraw():
                 "Successfully withdrew " + format_currency(withdraw_req) + "."
             )
 
-            balance = format_currency(balance_unformatted)
-
     return render_template(
         "withdraw.html",
         page="Withdraw",
         balance=balance,
+        balance_formatted=format_currency(balance),
         user=session["user"],
         message_type=message_type,
         message=message
     )
 
-@app.route("/deposit")
+@app.route("/deposit", methods=["POST", "GET"])
 def deposit():
     if "user" not in session:
         return redirect("/login", 302)
 
+    message = None
     balance = get_balance(session["user"]["id"])
+
+    if request.method == "POST":
+        deposit_req = float(request.form["amount"])
+        balance += deposit_req
+
+        cursor.execute(deposit_user_stmt,
+            (
+                deposit_req,
+                session["user"]["id"]
+            )
+        )
+
+        cursor.execute(
+            transfers_add_stmt,
+            (
+                session["user"]["id"],
+                deposit_req,
+                balance,
+                None,
+                None,
+                DEPOSIT,
+                int(time.time())
+            )
+        )
+
+        message = (
+            "Successfully deposited " + format_currency(deposit_req) + "."
+        )
 
     return render_template(
         "deposit.html",
         page="Deposit",
         balance=balance,
-        user=session["user"]
+        balance_formatted=format_currency(balance),
+        user=session["user"],
+        message=message
     )
 
 @app.route("/transfer")
@@ -230,5 +272,6 @@ def transfer():
         "transfer.html",
         page="Transfer",
         balance=balance,
+        balance_formatted=format_currency(balance),
         user=session["user"]
     )
