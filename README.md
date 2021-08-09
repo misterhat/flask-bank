@@ -8,7 +8,7 @@ a bank website written in python utilizing
 ## setup
 
 ```
-    $ pip install Flask
+    $ pip install Flask flask-mysql
 ```
 
 ## license

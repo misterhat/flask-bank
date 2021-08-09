@@ -30,7 +30,13 @@
             <a class="nav-link" href="/transfer">Transfer</a>
           </li>
         </ul>
+        {% if user %}
+        <span class="text-light" href="/login">
+          Logged in as <em>{{ user.username }}</em>
+        </span>
+        {% else %}
         <a class="link-light" href="/login">Login</a>
+        {% endif %}
       </div>
     </nav>
     <div class="container">

@@ -1,3 +1,27 @@
 {% include 'header.html' %}
-  Test
+{% if activity|length == 0 %}
+<div class="alert alert-info">No bank activity yet!</div>
+{% else %}
+<table class="table">
+  <thead>
+    <tr>
+      <th scope="col" style="width: 45%;">Activity</th>
+      <th scope="col" style="width: 15%;">Amount</th>
+      <th scope="col" style="width: 15%;">Balance</th>
+      <th scope="col" style="width: 15%;">Date</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Withdraw</td>
+      <td>$100.00</td>
+      <td>$500.00</td>
+      <td>Aug 6, 2015 11:15</td>
+    </tr>
+  </tbody>
+</table>
+<br />
+{% endif %}
+<p class="float-end"><strong>Current Balance:</strong> {{ balance }}</p>
+<div class="clearfix"></div>
 {% include 'footer.html' %}
