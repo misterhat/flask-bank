@@ -8,11 +8,15 @@ import base64
 import locale
 import os
 import time
+import math
 
 # used to determine the type of log
 WITHDRAW = 0
 DEPOSIT = 1
 TRANSFER = 2
+
+# amount of transactions to display per page on activities
+PER_PAGE = 5
 
 locale.setlocale(locale.LC_ALL, "")
 
@@ -41,11 +45,18 @@ WHERE `username` = %s"""
 
 balance_stmt = "SELECT `balance` FROM `bank_users` WHERE `id` = %s"
 
-transfers_get_stmt = """SELECT `bank_transfers`.*, `bank_users`.`username` AS
-`to_username` FROM
-`bank_transfers` LEFT JOIN `bank_users` ON `bank_users`.`id` =
-`bank_transfers`.`to_user_id` WHERE `user_id` = %s OR `to_user_id` = %s
-ORDER BY `date` DESC"""
+transfers_count_stmt = """SELECT COUNT(1) FROM `bank_transfers` WHERE
+`user_id` = %s OR `to_user_id` = %s"""
+
+transfers_get_stmt = """
+SELECT `bank_transfers`.*, `to_users`.`username`, `from_users`.`username`
+FROM `bank_transfers`
+LEFT JOIN `bank_users` AS `to_users` ON
+`to_users`.`id` = `bank_transfers`.`to_user_id`
+LEFT JOIN `bank_users` AS `from_users` ON
+`from_users`.`id` = `bank_transfers`.`user_id`
+WHERE `user_id` = %s OR `to_user_id` = %s
+ORDER BY `date` DESC LIMIT %s,%s"""
 
 withdraw_stmt = """UPDATE `bank_users` SET `balance` = `balance` - %s
 WHERE `id` = %s"""
@@ -106,7 +117,19 @@ def home():
     user_id = session["user"]["id"]
     activities = []
 
-    res = cursor.execute(transfers_get_stmt, (user_id, user_id))
+    cursor.execute(transfers_count_stmt, (user_id, user_id))
+    count = cursor.fetchone()[0]
+
+    total_pages = math.ceil(count / PER_PAGE)
+
+    page = int(request.args.get('page') or 1) - 1
+
+    if page < 0 or (total_pages > 1 and page >= total_pages):
+        return redirect("/", 302)
+
+    offset = page * PER_PAGE
+
+    cursor.execute(transfers_get_stmt, (user_id, user_id, offset, PER_PAGE))
     res = cursor.fetchall()
 
     for row in res:
@@ -114,17 +137,18 @@ def home():
         amount = format_currency(row[2])
         to_user_id = row[4]
         reason = row[5]
-        to_username = row[8]
         transfer_from_us = row[6] == TRANSFER and to_user_id != user_id
         transfer_to_us = row[6] == TRANSFER and to_user_id == user_id
 
-        if row[6] == TRANSFER and not reason :
+        if row[6] == TRANSFER and not reason:
             reason = "empty reason"
 
         if transfer_from_us:
+            to_username = row[8]
             type = type + " to " + to_username + " (" + reason + ")"
         elif transfer_to_us:
-            type = type + " from " + to_username + " (" + reason + ")"
+            from_username = row[9]
+            type = type + " from " + from_username + " (" + reason + ")"
 
         if row[6] == WITHDRAW or transfer_from_us:
             amount = "-" + amount
@@ -143,7 +167,9 @@ def home():
         page="Home",
         user=session["user"],
         balance=balance,
-        activities=activities
+        activities=activities,
+        total_pages=total_pages,
+        current_page=page + 1
     )
 
 @app.route("/login", methods=["POST", "GET"])
@@ -240,7 +266,7 @@ def deposit():
 
     user_id = session["user"]["id"]
     message = None
-    balance = get_balance(session["user"]["id"])
+    balance = get_balance(user_id)
 
     if request.method == "POST":
         deposit_req = float(request.form["amount"])
@@ -326,7 +352,7 @@ def transfer():
                     message = (
                         "Successfully transferred " +
                         format_currency(transfer_req) +
-                        " to " + user_req
+                        " to " + user_req + "."
                     )
 
     return render_template(
