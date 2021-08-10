@@ -49,7 +49,8 @@ transfers_count_stmt = """SELECT COUNT(1) FROM `bank_transfers` WHERE
 `user_id` = %s OR `to_user_id` = %s"""
 
 transfers_get_stmt = """
-SELECT `bank_transfers`.*, `to_users`.`username`, `from_users`.`username`
+SELECT `bank_transfers`.*,
+`to_users`.`username`, `from_users`.`username`
 FROM `bank_transfers`
 LEFT JOIN `bank_users` AS `to_users` ON
 `to_users`.`id` = `bank_transfers`.`to_user_id`
@@ -67,8 +68,8 @@ WHERE `id` = %s"""
 user_id_stmt = "SELECT `id` FROM `bank_users` WHERE `username` = %s"
 
 transfers_add_stmt = """INSERT INTO `bank_transfers` (`user_id`,
-`amount`, `balance`, `to_user_id`, `reason`, `type`, `date`) VALUES
-(%s, %s, %s, %s, %s, %s, %s)"""
+`amount`, `balance`, `to_balance`, `to_user_id`, `reason`, `type`, `date`)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
 
 # use this to create new passwords
 def hash_password(plain):
@@ -133,31 +134,33 @@ def home():
     res = cursor.fetchall()
 
     for row in res:
-        type = format_type(row[6])
+        type = format_type(row[7])
         amount = format_currency(row[2])
-        to_user_id = row[4]
-        reason = row[5]
-        transfer_from_us = row[6] == TRANSFER and to_user_id != user_id
-        transfer_to_us = row[6] == TRANSFER and to_user_id == user_id
+        to_user_id = row[5]
+        reason = row[6]
+        transfer_from_us = row[7] == TRANSFER and to_user_id != user_id
+        transfer_to_us = row[7] == TRANSFER and to_user_id == user_id
+        balance = format_currency(row[3])
 
-        if row[6] == TRANSFER and not reason:
+        if row[7] == TRANSFER and not reason:
             reason = "empty reason"
 
         if transfer_from_us:
-            to_username = row[8]
+            to_username = row[9]
             type = type + " to " + to_username + " (" + reason + ")"
         elif transfer_to_us:
-            from_username = row[9]
+            balance = format_currency(row[4])
+            from_username = row[10]
             type = type + " from " + from_username + " (" + reason + ")"
 
-        if row[6] == WITHDRAW or transfer_from_us:
+        if row[7] == WITHDRAW or transfer_from_us:
             amount = "-" + amount
 
         activities.append({
             "type": type,
             "amount": amount,
-            "balance": format_currency(row[3]),
-            "date": format_date(row[7])
+            "balance": balance,
+            "date": format_date(row[8])
         })
 
     balance = format_currency(get_balance(user_id))
@@ -238,6 +241,7 @@ def withdraw():
                     balance,
                     None,
                     None,
+                    None,
                     WITHDRAW,
                     int(time.time())
                 )
@@ -282,6 +286,7 @@ def deposit():
                 balance,
                 None,
                 None,
+                None,
                 DEPOSIT,
                 int(time.time())
             )
@@ -308,6 +313,7 @@ def transfer():
     user_id = session["user"]["id"]
     message = None
     message_type = "danger"
+
     balance = get_balance(user_id)
 
     if request.method == "POST":
@@ -330,6 +336,8 @@ def transfer():
                     balance -= transfer_req
 
                     to_user_id = res[0]
+                    to_balance = get_balance(to_user_id)
+                    to_balance += transfer_req
 
                     cursor.execute(withdraw_stmt, (transfer_req, user_id))
                     cursor.execute(deposit_stmt, (transfer_req, to_user_id))
@@ -340,6 +348,7 @@ def transfer():
                             user_id,
                             transfer_req,
                             balance,
+                            to_balance,
                             to_user_id,
                             request.form["reason"].strip(),
                             TRANSFER,
