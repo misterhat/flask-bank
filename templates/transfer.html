@@ -1,23 +1,27 @@
 {% include 'header.html' %} {% import 'controls.html' as controls %}
 <div style="max-width: 540px; margin: auto">
   <h2>Transfer</h2>
+  {% if message %}
+  <div class="alert alert-{{ message_type }}">{{ message }}</div>
+  {% endif %}
   <form method="post" action="">
-      <div class="mb-3">
-          <label for="username" class="form-label">Username:</label>
-          {{ controls.username('username') }}
-      </div>
-      <div class="mb-3">
-          <label for="reason">Reason:</label>
-          <textarea class="form-control" id="reason"></textarea>
-      </div>
-      <div class="mb-3">
-          <label for="username" class="form-label">Amount:</label>
-          {{ controls.currency(balance, 'amount') }}
-      </div>
-      <input type="submit" class="btn btn-primary" value="Transfer" />
+    <div class="mb-3">
+        <label for="username" class="form-label">Username:</label>
+        {{ controls.username('username') }}
+    </div>
+    <div class="mb-3">
+        <label for="reason">Reason:</label>
+        <textarea class="form-control" id="reason" name="reason"></textarea>
+    </div>
+    <div class="mb-3">
+        <label for="username" class="form-label">Amount:</label>
+        {{ controls.currency(balance, 'amount') }}
+    </div>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <input type="submit" class="btn btn-primary" value="Transfer" />
   </form>
   <p class="float-end">
-      <strong>Current Balance:</strong> {{ balance_formatted }}
+    <strong>Current Balance:</strong> {{ balance_formatted }}
   </p>
   <div class="clearfix"></div>
 </div>
