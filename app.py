@@ -10,6 +10,7 @@ import locale
 import math
 import os
 import time
+import timeago
 
 # used to determine the type of log
 WITHDRAW = 0
@@ -85,7 +86,7 @@ WHERE `id` = %s"""
 log_stmt = """INSERT INTO `bank_log` (`user_id`, `type`, `date`)
 VALUES (%s, %s, %s)"""
 
-signed_in_stmt = """SELECT `username` FROM `bank_users`
+signed_in_stmt = """SELECT `username`, `last_activity` FROM `bank_users`
 WHERE `last_activity` > %s"""
 
 signed_out_stmt = """SELECT `id` FROM `bank_users`
@@ -168,7 +169,10 @@ def inject_dict_for_all_templates():
         signed_in_users = []
 
         for row in cursor.fetchall():
-            signed_in_users.append(row[0])
+            signed_in_users.append({
+                "username": row[0],
+                "last_activity": timeago.format(row[1])
+            })
 
         return { "signed_in_users": signed_in_users }
 
