@@ -169,9 +169,16 @@ def inject_dict_for_all_templates():
         signed_in_users = []
 
         for row in cursor.fetchall():
+            last_activity = row[1]
+
+            if int(time.time()) - last_activity <= 60:
+                last_activity = 'less than a minute ago'
+            else:
+                last_activity = timeago.format(row[1])
+
             signed_in_users.append({
                 "username": row[0],
-                "last_activity": timeago.format(row[1])
+                "last_activity": last_activity
             })
 
         return { "signed_in_users": signed_in_users }
