@@ -1,22 +1,29 @@
 #!/usr/bin/env python3
 
+from datetime import timedelta
 from flask import Flask, render_template, redirect, request, session
 from flask_wtf.csrf import CSRFProtect
 from flaskext.mysql import MySQL
 from hashlib import scrypt
 import base64
 import locale
+import math
 import os
 import time
-import math
 
 # used to determine the type of log
 WITHDRAW = 0
 DEPOSIT = 1
 TRANSFER = 2
 
+LOGIN = 0
+LOGOUT = 1
+
 # amount of transactions to display per page on activities
 PER_PAGE = 5
+
+# minutes to allow the user to stay logged in
+LOGOUT_TIMEOUT = 2
 
 locale.setlocale(locale.LC_ALL, "")
 
@@ -25,15 +32,16 @@ app = Flask(__name__)
 # https://owasp.org/www-community/attacks/csrf
 csrf = CSRFProtect(app)
 
-# used for session
-app.secret_key = b"secret"
-
 mysql = MySQL()
 
 app.config["MYSQL_DATABASE_USER"] = "admin"
 app.config["MYSQL_DATABASE_PASSWORD"] = "ezezez"
 app.config["MYSQL_DATABASE_DB"] = "bank"
 app.config["MYSQL_DATABASE_HOST"] = "localhost"
+
+app.config["SECRET_KEY"] = b"secret"
+
+#app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=LOGOUT_TIMEOUT)
 
 mysql.init_app(app)
 connection = mysql.connect()
@@ -70,6 +78,20 @@ user_id_stmt = "SELECT `id` FROM `bank_users` WHERE `username` = %s"
 transfers_add_stmt = """INSERT INTO `bank_transfers` (`user_id`,
 `amount`, `balance`, `to_balance`, `to_user_id`, `reason`, `type`, `date`)
 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
+
+activity_update_stmt = """UPDATE `bank_users` SET `last_activity` = %s
+WHERE `id` = %s"""
+
+log_stmt = """INSERT INTO `bank_log` (`user_id`, `type`, `date`)
+VALUES (%s, %s, %s)"""
+
+signed_in_stmt = """SELECT `username` FROM `bank_users`
+WHERE `last_activity` > %s"""
+
+signed_out_stmt = """SELECT `id` FROM `bank_users`
+WHERE `last_activity` < %s AND `last_activity` > 0"""
+
+last_global_update = 0
 
 # use this to create new passwords
 def hash_password(plain):
@@ -109,6 +131,48 @@ def get_balance(id):
         balance = res[0]
 
     return balance
+
+@app.before_request
+def before_request():
+    global last_global_update
+
+    now = int(time.time())
+
+    # sync the database in case users log in and don't load any more pages
+    if now - last_global_update > (LOGOUT_TIMEOUT / 2) * 60:
+        cursor.execute(signed_out_stmt, now - (LOGOUT_TIMEOUT * 60))
+
+        for row in cursor.fetchall():
+            user_id = row[0]
+            cursor.execute(log_stmt, (user_id, LOGOUT, now))
+            cursor.execute(activity_update_stmt, (0, user_id))
+
+        last_global_update = now
+
+    if "user" in session:
+        user_id = session["user"]["id"]
+        last_activity = session["user"]["last_activity"]
+
+        if now - last_activity > LOGOUT_TIMEOUT * 60:
+            cursor.execute(log_stmt, (user_id, LOGOUT, now))
+            cursor.execute(activity_update_stmt, (0, user_id))
+            session.pop("user", default=None)
+        else:
+            cursor.execute(activity_update_stmt, (now, user_id))
+            session["user"]["last_activity"] = now
+
+@app.context_processor
+def inject_dict_for_all_templates():
+    if "user" in session:
+        cursor.execute(signed_in_stmt, int(time.time()) - LOGOUT_TIMEOUT * 60)
+        signed_in_users = []
+
+        for row in cursor.fetchall():
+            signed_in_users.append(row[0])
+
+        return { "signed_in_users": signed_in_users }
+
+    return {}
 
 @app.route("/")
 def home():
@@ -195,10 +259,15 @@ def login():
             password = bytes(request.form["password"], "utf8")
 
             if hashed == scrypt(password, salt=salt, n=2, r=1, p=1):
+                cursor.execute(log_stmt, (id, LOGIN, int(time.time())))
+
                 session["user"] = {
                     "id": id,
-                    "username": username
+                    "username": username,
+                    "last_activity": int(time.time())
                 }
+
+                session.permanent = True
 
                 return redirect("/", 302)
             else:
@@ -209,6 +278,9 @@ def login():
 @app.route("/logout")
 def logout():
     if "user" in session:
+        user_id = session["user"]["id"]
+        cursor.execute(log_stmt, (user_id, LOGOUT, int(time.time())))
+        cursor.execute(activity_update_stmt, (0, user_id))
         session.pop("user", default=None)
 
     return redirect("/", 302)

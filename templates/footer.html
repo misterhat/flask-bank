@@ -1,4 +1,19 @@
     </div>
+    {% if signed_in_users %}
+    <br />
+    <div class="container">
+      <div class="row justify-content-md-center">
+        <div class="col-6">
+          <h4>Users Signed In:</h4>
+          <ul class="list-inline">
+            {% for user in signed_in_users %}
+            <li class="list-inline-item">{{ user }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+    {% endif %}
     <footer class="container text-muted text-center">
       <hr />
       <small
