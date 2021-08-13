@@ -49,48 +49,64 @@ connection = mysql.connect()
 connection.autocommit(True)
 cursor = connection.cursor()
 
-login_stmt = """SELECT `id`, `username`, `password`, `salt` FROM `bank_users`
-WHERE `username` = %s"""
+login_stmt = """
+SELECT `id`, `username`, `password`, `salt` FROM `bank_users`
+WHERE `username` = %s
+"""
 
 balance_stmt = "SELECT `balance` FROM `bank_users` WHERE `id` = %s"
 
-transfers_count_stmt = """SELECT COUNT(1) FROM `bank_transfers` WHERE
-`user_id` = %s OR `to_user_id` = %s"""
+transfers_count_stmt = """
+SELECT COUNT(1) FROM `bank_transfers` WHERE
+`user_id` = %s OR `to_user_id` = %s
+"""
 
 transfers_get_stmt = """
-SELECT `bank_transfers`.*,
-`to_users`.`username`, `from_users`.`username`
+SELECT `bank_transfers`.*, `to_users`.`username`, `from_users`.`username`
 FROM `bank_transfers`
 LEFT JOIN `bank_users` AS `to_users` ON
 `to_users`.`id` = `bank_transfers`.`to_user_id`
 LEFT JOIN `bank_users` AS `from_users` ON
 `from_users`.`id` = `bank_transfers`.`user_id`
 WHERE `user_id` = %s OR `to_user_id` = %s
-ORDER BY `date` DESC LIMIT %s,%s"""
+ORDER BY `date` DESC LIMIT %s,%s
+"""
 
-withdraw_stmt = """UPDATE `bank_users` SET `balance` = `balance` - %s
-WHERE `id` = %s"""
+withdraw_stmt = """
+UPDATE `bank_users` SET `balance` = `balance` - %s
+WHERE `id` = %s
+"""
 
-deposit_stmt = """UPDATE `bank_users` SET `balance` = `balance` + %s
-WHERE `id` = %s"""
+deposit_stmt = """
+UPDATE `bank_users` SET `balance` = `balance` + %s
+WHERE `id` = %s
+"""
 
 user_id_stmt = "SELECT `id` FROM `bank_users` WHERE `username` = %s"
 
-transfers_add_stmt = """INSERT INTO `bank_transfers` (`user_id`,
+transfers_add_stmt = """
+INSERT INTO `bank_transfers` (`user_id`,
 `amount`, `balance`, `to_balance`, `to_user_id`, `reason`, `type`, `date`)
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+"""
 
-activity_update_stmt = """UPDATE `bank_users` SET `last_activity` = %s
-WHERE `id` = %s"""
+activity_update_stmt = """
+UPDATE `bank_users` SET `last_activity` = %s WHERE `id` = %s
+"""
 
-log_stmt = """INSERT INTO `bank_log` (`user_id`, `type`, `date`)
-VALUES (%s, %s, %s)"""
+log_stmt = """
+INSERT INTO `bank_log` (`user_id`, `type`, `date`) VALUES (%s, %s, %s)
+"""
 
-signed_in_stmt = """SELECT `username`, `last_activity` FROM `bank_users`
-WHERE `last_activity` > %s"""
+signed_in_stmt = """
+SELECT `username`, `last_activity` FROM `bank_users`
+WHERE `last_activity` > %s
+"""
 
-signed_out_stmt = """SELECT `id` FROM `bank_users`
-WHERE `last_activity` < %s AND `last_activity` > 0"""
+signed_out_stmt = """
+SELECT `id` FROM `bank_users`
+WHERE `last_activity` < %s AND `last_activity` > 0
+"""
 
 last_global_update = 0
 
@@ -109,8 +125,8 @@ def hash_password(plain):
 def format_currency(amount):
     return locale.currency(amount, grouping=True)
 
-def format_date(epoch):
-    return time.strftime("%b %d, %Y %H:%M", time.localtime(epoch))
+def format_date(secs):
+    return time.strftime("%b %d, %Y %H:%M", time.localtime(secs))
 
 def format_type(type):
     if type == WITHDRAW:
@@ -455,4 +471,15 @@ def transfer():
         user=session["user"],
         message_type=message_type,
         message=message
+    )
+
+@app.route("/chat")
+def chat():
+    if "user" not in session:
+        return redirect("/login", 302)
+
+    return render_template(
+        "chat.html",
+        page="Chat",
+        user=session["user"]
     )
