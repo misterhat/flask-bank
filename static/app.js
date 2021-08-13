@@ -4,93 +4,39 @@
         new bootstrap.Popover(popoverTriggerEl);
     });
 
-if (window.location.pathname === '/chat') {
-    const chatGroups = [
-        {
-            id: 124,
-            users: ['test2'],
-            messages: [
-                {
-                    user: 'test2',
-                    message: 'hey',
-                    date: new Date(Date.now() - 1000 * 60 * 5)
-                },
-                {
-                    user: 'test',
-                    message: 'hi.',
-                    date: new Date(Date.now() - 1000 * 60 * 4)
-                }
-            ]
-        },
-        {
-            id: 123,
-            users: ['test3', 'test4'],
-            messages: [
-                {
-                    user: 'test3',
-                    message: 'lorem ipsum dolar set amit',
-                    date: new Date(Date.now() - 1000 * 60 * 10)
-                },
-                {
-                    user: 'test3',
-                    message: 'lorem ipsum dolar set amit',
-                    date: new Date(Date.now() - 1000 * 60 * 10)
-                },
-                {
-                    user: 'test3',
-                    message: 'lorem ipsum dolar set amit',
-                    date: new Date(Date.now() - 1000 * 60 * 10)
-                },
-                {
-                    user: 'test3',
-                    message: 'lorem ipsum dolar set amit',
-                    date: new Date(Date.now() - 1000 * 60 * 10)
-                },
-                {
-                    user: 'test3',
-                    message: 'lorem ipsum dolar set amit',
-                    date: new Date(Date.now() - 1000 * 60 * 10)
-                },
-                {
-                    user: 'test3',
-                    message: 'lorem ipsum dolar set amit',
-                    date: new Date(Date.now() - 1000 * 60 * 10)
-                },
-                {
-                    user: 'test3',
-                    message: 'lorem ipsum dolar set amit',
-                    date: new Date(Date.now() - 1000 * 60 * 10)
-                },
-                {
-                    user: 'test3',
-                    message: 'lorem ipsum dolar set amit',
-                    date: new Date(Date.now() - 1000 * 60 * 10)
-                },
-                {
-                    user: 'test3',
-                    message: 'lorem ipsum dolar set amit',
-                    date: new Date(Date.now() - 1000 * 60 * 10)
-                },
-                {
-                    user: 'test3',
-                    message: 'lorem ipsum dolar set amit',
-                    date: new Date(Date.now() - 1000 * 60 * 10)
-                },
-                {
-                    user: 'test3',
-                    message: 'lorem ipsum dolar set amit',
-                    date: new Date(Date.now() - 1000 * 60 * 10)
-                },
-                {
-                    user: 'test4',
-                    message: 'what???',
-                    date: new Date(Date.now() - 1000 * 60 * 8)
-                }
-            ]
-        }
-    ];
+const socket = io();
 
-    let activeGroupIdx = 0;
+if (window.location.pathname === '/chat') {
+    // [ { id, users } ]
+    let chatGroups = [];
+
+    // [ { user, message, date } ]
+    let chatMessages = [];
+
+    socket.on('connect', () => {
+        socket.emit('get-chat-groups', {});
+    });
+
+    socket.on('chat-groups', (groups) => {
+        chatGroups = groups;
+        console.log(chatGroups);
+        refreshChatGroupList();
+    });
+
+    socket.on('chat-messages', (messages) => {
+        chatMessages = messages;
+        refreshChatRoom();
+    });
+
+    let activeGroupIdx = -1;
+
+    const chatWithInput = document.getElementById('chat-with');
+
+    chatWithInput.onkeyup = (e) => {
+        if (e.key === 'Enter') {
+            console.log('open new chat with username');
+        }
+    };
 
     const groupListDiv = document.getElementById('group-list');
 
@@ -105,11 +51,16 @@ if (window.location.pathname === '/chat') {
                 a.className += ' active';
             }
 
+            // 👤 👥
             a.innerText = group.users.join(', ');
             a.href = `#group-${group.id}`;
 
             a.onclick = () => {
                 activeGroupIdx = Number(i);
+
+                socket.emit('get-chat-messages', {
+                    group_id: chatGroups[activeGroupIdx].id
+                });
 
                 refreshChatGroupList();
                 refreshChatRoom();
@@ -122,6 +73,9 @@ if (window.location.pathname === '/chat') {
     const chatRoomDiv = document.getElementById('chat-room');
 
     const addMessage = ({ user, message, date }) => {
+        user = user || 'System';
+        date = new Date(date * 1000);
+
         const span = document.createElement('span');
 
         span.innerHTML =
@@ -132,31 +86,49 @@ if (window.location.pathname === '/chat') {
 
         chatRoomDiv.appendChild(span);
         chatRoomDiv.appendChild(p);
-        //chatRoomDiv.appendChild(document.createElement('hr'));
 
         chatRoomDiv.scrollTop = chatRoomDiv.scrollHeight;
     };
 
+    const chatRoomWrapDiv = document.getElementById('chat-room-wrap');
+    const chatRoomMessageDiv = document.getElementById('chat-room-message');
     const usersUl = document.getElementById('user-list');
 
     const refreshChatRoom = () => {
+        if (!chatGroups.length || activeGroupIdx === -1) {
+            chatRoomWrapDiv.style.display = 'none';
+            chatRoomMessageDiv.style.display = 'block';
+            return;
+        }
+
+        chatRoomMessageDiv.style.display = 'none';
+        chatRoomWrapDiv.style.display = 'block';
+
         usersUl.innerHTML = '';
 
         const active = chatGroups[activeGroupIdx];
 
         for (const user of active.users) {
             const li = document.createElement('li');
-            li.innerText = user;
+            li.innerText = '👤 ' + user;
             usersUl.appendChild(li);
         }
 
         chatRoomDiv.innerHTML = '';
 
-        for (const message of active.messages) {
+        for (const message of chatMessages) {
             addMessage(message);
         }
     };
 
-    refreshChatGroupList();
-    refreshChatRoom();
+    const messageInput = document.getElementById('message');
+
+    messageInput.onkeyup = (e) => {
+        if (e.key === 'Enter') {
+            console.log('send message');
+        }
+    };
+
+    //refreshChatGroupList();
+    //refreshChatRoom();
 }

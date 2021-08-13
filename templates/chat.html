@@ -6,21 +6,16 @@
       type="text"
       class="form-control"
       placeholder="Enter username..."
+      id="chat-with"
     />
     <br />
-    <div class="list-group" id="group-list">
-      <a href="#group-1" class="list-group-item list-group-item-action"
-        >👤 test</a
-      >
-      <a href="#group-1" class="list-group-item list-group-item-action"
-        >👥 test, test2</a
-      >
-    </div>
+    <div class="list-group" id="group-list"></div>
   </div>
-  <div class="col-md-9">
-    {% if false %}
+  <div class="col-md-9" id="chat-room-message">
+    <br />
     <div class="alert alert-primary">No group selected.</div>
-    {% else %}
+  </div>
+  <div class="col-md-9" id="chat-room-wrap" style="display: none;">
     <br />
     <div class="row">
       <div class="col-md-9">
@@ -45,7 +40,7 @@
       <div class="col-md-3">
         <h4>Users:</h4>
         <ul class="list-unstyled" id="user-list"></ul>
-        <label for="invite" class="form-label">Invite User:</label>
+        <label for="invite" class="form-label"><strong>Invite User:</strong></label>
         <input
           type="text"
           class="form-control"
@@ -56,7 +51,6 @@
         <button class="btn btn-danger">Leave Room</button>
       </div>
     </div>
-    {% endif %}
   </div>
 </div>
 {% include 'footer.html' %}

@@ -8,7 +8,7 @@ a bank website written in python utilizing
 ## setup
 
 ```
-$ pip install Flask flask-mysql flask_wtf timeago flask-socketio
+$ pip install Flask flask-mysql flask_wtf timeago flask-socketio gevent gevent-websocket
 ```
 
 ## license

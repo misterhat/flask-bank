@@ -2,6 +2,7 @@
 
 from datetime import timedelta
 from flask import Flask, render_template, redirect, request, session
+from flask_socketio import SocketIO, send, emit
 from flask_wtf.csrf import CSRFProtect
 from flaskext.mysql import MySQL
 from hashlib import scrypt
@@ -48,6 +49,8 @@ mysql.init_app(app)
 connection = mysql.connect()
 connection.autocommit(True)
 cursor = connection.cursor()
+
+socketio = SocketIO(app)
 
 login_stmt = """
 SELECT `id`, `username`, `password`, `salt` FROM `bank_users`
@@ -108,6 +111,25 @@ SELECT `id` FROM `bank_users`
 WHERE `last_activity` < %s AND `last_activity` > 0
 """
 
+group_ids_stmt = """
+SELECT `g`.`id` FROM `bank_chat_group_users` AS `gu`
+JOIN `bank_chat_groups` AS `g` ON `gu`.`group_id` = `g`.`id`
+WHERE `gu`.`user_id` = %s
+"""
+
+group_users_stmt = """
+SELECT `u`.`username`
+FROM `bank_chat_group_users` AS `gu`
+JOIN `bank_users` AS `u` ON `u`.`id` = `gu`.`user_id`
+WHERE `group_id` = %s AND `user_id` != %s
+"""
+
+group_messages_stmt = """
+SELECT `user_id`, `message`, `date`
+FROM `bank_chat_messages`
+WHERE `group_id` = %s
+"""
+
 last_global_update = 0
 
 # use this to create new passwords
@@ -138,16 +160,50 @@ def format_type(type):
     if type == TRANSFER:
         return "Transfer"
 
-def get_balance(id):
+def get_balance(user_id):
     balance = 0
 
-    res = cursor.execute(balance_stmt, id)
+    cursor.execute(balance_stmt, user_id)
     res = cursor.fetchone()
 
     if res:
         balance = res[0]
 
     return balance
+
+def get_group_ids(user_id):
+    cursor.execute(group_ids_stmt, user_id)
+    res = cursor.fetchall()
+    ids = []
+
+    for row in res:
+        ids.append(row[0])
+
+    return ids
+
+def get_group_users(group_id, user_id):
+    cursor.execute(group_users_stmt, (group_id, user_id))
+    res = cursor.fetchall()
+    users = []
+
+    for row in res:
+        users.append(row[0])
+
+    return users
+
+def get_group_messages(group_id):
+    cursor.execute(group_messages_stmt, group_id)
+    res = cursor.fetchall()
+    messages = []
+
+    for row in res:
+        messages.append({
+            "user": row[0],
+            "message": row[1],
+            "date": row[2]
+        })
+
+    return messages
 
 @app.before_request
 def before_request():
@@ -291,7 +347,8 @@ def login():
                 session["user"] = {
                     "id": id,
                     "username": username,
-                    "last_activity": int(time.time())
+                    "last_activity": int(time.time()),
+                    "group_ids": get_group_ids(id)
                 }
 
                 session.permanent = True
@@ -483,3 +540,24 @@ def chat():
         page="Chat",
         user=session["user"]
     )
+
+@socketio.on('get-chat-groups')
+def on_get_chat_groups(json):
+    user_id = session["user"]["id"]
+    chat_groups = []
+
+    for group_id in session["user"]["group_ids"]:
+        group = {}
+        group["id"] = group_id
+        group["users"] = get_group_users(group_id, user_id)
+        chat_groups.append(group)
+
+    emit('chat-groups', chat_groups)
+
+@socketio.on('get-chat-messages')
+def on_get_chat_messages(json):
+    group_id = json["group_id"]
+    emit('chat-messages', get_group_messages(group_id))
+
+if __name__ == '__main__':
+    socketio.run(app)
