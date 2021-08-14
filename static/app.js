@@ -19,8 +19,8 @@ if (window.location.pathname === '/chat') {
     });
 
     socket.on('redirect', (loc) => {
-        window.location = loc;
         window.location.hash = '';
+        window.location = loc;
         window.location.reload();
     });
 
@@ -177,12 +177,37 @@ if (window.location.pathname === '/chat') {
         }
     };
 
+    const inviteInput = document.getElementById('invite');
+
+    inviteInput.onkeyup = (e) => {
+        const username = inviteInput.value.trim().toLowerCase();
+
+        if (e.key === 'Enter' && username.length) {
+            inviteInput.value = '';
+
+            for (const user of chatGroups[activeGroupIdx].users) {
+                if (user.toLowerCase() === username) {
+                    alert(`${username} is already in the group.`);
+                    return;
+                }
+            }
+
+            socket.emit('invite-group', {
+                group_id: chatGroups[activeGroupIdx].id,
+                username
+            });
+        }
+
+    };
+
     const leaveGroupButton = document.getElementById('leave-group');
 
     leaveGroupButton.onclick = (e) => {
-        socket.emit('leave-group', {
-            group_id: chatGroups[activeGroupIdx].id
-        });
+        if (confirm("Are you sure you wish to leave the group?")) {
+            socket.emit('leave-group', {
+                group_id: chatGroups[activeGroupIdx].id
+            });
+        }
     };
 } else {
     // notification
