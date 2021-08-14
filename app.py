@@ -145,6 +145,18 @@ INSERT INTO `bank_chat_group_users` (`group_id`, `user_id`, `is_owner`)
 VALUES (%s, %s, %s)
 """
 
+leave_group_user_stmt = """
+DELETE FROM `bank_chat_group_users` WHERE `group_id` = %s AND `user_id` = %s
+"""
+
+count_group_user_stmt = """
+SELECT `user_id` FROM `bank_chat_group_users` WHERE `group_id` = %s LIMIT 2
+"""
+
+delete_group_stmt = "DELETE FROM `bank_chat_groups` WHERE `id` = %s"
+
+delete_messages_stmt = "DELETE FROM `bank_chat_messages` WHERE `group_id` = %s"
+
 last_global_update = 0
 
 # use this to create new passwords
@@ -612,7 +624,6 @@ def on_send_chat_messages(json):
             "message": message,
             "date": now
         },
-        broadcast=True,
         to="group-" + str(group_id)
     )
 
@@ -650,6 +661,29 @@ def on_create_group(json):
 
             join_room("group-" + str(group_id))
             emit("redirect", "/chat#group-" + str(group_id))
+
+@socketio.on('leave-group')
+def on_leave_group(json):
+    user_id = session["user"]["id"]
+    group_id = json["group_id"]
+
+    if group_id not in session["user"]["group_ids"]:
+        return
+
+    leave_room("group-" + str(group_id))
+    cursor.execute(leave_group_user_stmt, (group_id, user_id))
+
+    cursor.execute(count_group_user_stmt, (group_id))
+    res = cursor.fetchall()
+
+    if len(res) == 1:
+        other_user_id = res[0][0]
+        cursor.execute(leave_group_user_stmt, (group_id, other_user_id))
+        cursor.execute(delete_group_stmt, group_id)
+        cursor.execute(delete_messages_stmt, group_id)
+        emit("redirect", "/chat", to="group-" + str(group_id))
+
+    emit("redirect", "/chat")
 
 if __name__ == '__main__':
     socketio.run(app)

@@ -10,11 +10,6 @@ socket.on('error-message', (error) => {
     alert(error);
 });
 
-socket.on('redirect', (loc) => {
-    window.location = loc;
-    window.location.reload();
-});
-
 if (window.location.pathname === '/chat') {
     // { groupID: unread }
     const unreadGroupds = {};
@@ -29,9 +24,28 @@ if (window.location.pathname === '/chat') {
         socket.emit('get-chat-groups', {});
     });
 
+    socket.on('redirect', (loc) => {
+        window.location = loc;
+        window.location.hash = '';
+        window.location.reload();
+    });
+
     socket.on('chat-groups', (groups) => {
         chatGroups = groups;
-        refreshChatGroupList();
+
+
+        if (window.location.hash.slice(1,6) === 'group') {
+            const joinGroupID = Number(window.location.hash.slice(7));
+
+            for (const [i, group] of Object.entries(chatGroups)) {
+                if (group.id === joinGroupID) {
+                    goToRoomIdx(i);
+                    return;
+                }
+            }
+        } else {
+            refreshChatGroupList();
+        }
     });
 
     socket.on('chat-messages', (messages) => {
@@ -67,6 +81,8 @@ if (window.location.pathname === '/chat') {
         const username = chatWithInput.value.trim();
 
         if (e.key === 'Enter' && username.length) {
+            chatWithInput.value = '';
+
             for (const [i, { users }] of Object.entries(chatGroups)) {
                 if (users.length === 1 && users[0] === username) {
                     goToRoomIdx(i);
@@ -166,6 +182,14 @@ if (window.location.pathname === '/chat') {
 
             messageInput.value = '';
         }
+    };
+
+    const leaveGroupButton = document.getElementById('leave-group');
+
+    leaveGroupButton.onclick = (e) => {
+        socket.emit('leave-group', {
+            group_id: chatGroups[activeGroupIdx].id
+        });
     };
 } else {
     // notification
