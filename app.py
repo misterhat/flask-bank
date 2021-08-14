@@ -138,6 +138,13 @@ INSERT INTO `bank_chat_messages` (`group_id`, `user_id`, `message`, `date`)
 VALUES (%s, %s, %s, %s)
 """
 
+add_group_stmt = "INSERT INTO `bank_chat_groups` (`date`) VALUES (%s)"
+
+add_group_user_stmt = """
+INSERT INTO `bank_chat_group_users` (`group_id`, `user_id`, `is_owner`)
+VALUES (%s, %s, %s)
+"""
+
 last_global_update = 0
 
 # use this to create new passwords
@@ -252,7 +259,7 @@ def inject_dict_for_all_templates():
             last_activity = row[1]
 
             if int(time.time()) - last_activity <= 60:
-                last_activity = 'less than a minute ago'
+                last_activity = "less than a minute ago"
             else:
                 last_activity = timeago.format(row[1])
 
@@ -278,7 +285,7 @@ def home():
 
     total_pages = math.ceil(count / PER_PAGE)
 
-    page = int(request.args.get('page') or 1) - 1
+    page = int(request.args.get("page") or 1) - 1
 
     if page < 0 or (total_pages > 1 and page >= total_pages):
         return redirect("/", 302)
@@ -543,6 +550,8 @@ def chat():
     if "user" not in session:
         return redirect("/login", 302)
 
+    session["user"]["group_ids"] = get_group_ids(session["user"]["id"])
+
     return render_template(
         "chat.html",
         page="Chat",
@@ -562,18 +571,21 @@ def on_get_chat_groups(json):
     user_id = session["user"]["id"]
     chat_groups = []
 
+    print('getting chat groups ')
+    print(session['user']['group_ids'])
+
     for group_id in session["user"]["group_ids"]:
         group = {}
         group["id"] = group_id
         group["users"] = get_group_users(group_id, user_id)
         chat_groups.append(group)
 
-    emit('chat-groups', chat_groups)
+    emit("chat-groups", chat_groups)
 
 @socketio.on('get-chat-messages')
 def on_get_chat_messages(json):
     group_id = json["group_id"]
-    emit('chat-messages', get_group_messages(group_id))
+    emit("chat-messages", get_group_messages(group_id))
 
 @socketio.on('send-message')
 def on_send_chat_messages(json):
@@ -593,7 +605,7 @@ def on_send_chat_messages(json):
     )
 
     emit(
-        'chat-message',
+        "chat-message",
         {
             "group_id": group_id,
             "user": session["user"]["username"],
@@ -603,6 +615,41 @@ def on_send_chat_messages(json):
         broadcast=True,
         to="group-" + str(group_id)
     )
+
+@socketio.on('create-group')
+def on_create_group(json):
+    user_id = session["user"]["id"]
+    username = json["username"].strip()
+
+    message = None
+
+    cursor.execute(user_id_stmt, username)
+    res = cursor.fetchone()
+
+    if not res:
+        emit("error-message", "User '" + username + "' does not exist.")
+    else:
+        other_user_id = res[0]
+
+        if other_user_id == user_id:
+            emit("error-message", "Cannot start a conversation with yourself.")
+        else:
+            now = int(time.time())
+
+            cursor.execute(add_group_stmt, now)
+            cursor.execute("SELECT LAST_INSERT_ID();")
+            group_id = cursor.fetchone()[0]
+
+            cursor.execute(add_group_user_stmt, (group_id, user_id, 1))
+            cursor.execute(add_group_user_stmt, (group_id, other_user_id, 0))
+
+            cursor.execute(
+                add_message_stmt,
+                (group_id, None, "Created new conversation.", now)
+            )
+
+            join_room("group-" + str(group_id))
+            emit("redirect", "/chat#group-" + str(group_id))
 
 if __name__ == '__main__':
     socketio.run(app)

@@ -6,6 +6,15 @@
 
 const socket = io();
 
+socket.on('error-message', (error) => {
+    alert(error);
+});
+
+socket.on('redirect', (loc) => {
+    window.location = loc;
+    window.location.reload();
+});
+
 if (window.location.pathname === '/chat') {
     // { groupID: unread }
     const unreadGroupds = {};
@@ -41,13 +50,31 @@ if (window.location.pathname === '/chat') {
 
     let activeGroupIdx = -1;
 
+    const goToRoomIdx = (idx) => {
+        activeGroupIdx = Number(idx);
+
+        socket.emit('get-chat-messages', {
+            group_id: chatGroups[activeGroupIdx].id
+        });
+
+        refreshChatGroupList();
+        refreshChatRoom();
+    };
+
     const chatWithInput = document.getElementById('chat-with');
 
     chatWithInput.onkeyup = (e) => {
         const username = chatWithInput.value.trim();
 
         if (e.key === 'Enter' && username.length) {
-            console.log('open new chat with username');
+            for (const [i, { users }] of Object.entries(chatGroups)) {
+                if (users.length === 1 && users[0] === username) {
+                    goToRoomIdx(i);
+                    return;
+                }
+            }
+
+            socket.emit('create-group', { username });
         }
     };
 
@@ -69,14 +96,7 @@ if (window.location.pathname === '/chat') {
             a.href = `#group-${group.id}`;
 
             a.onclick = () => {
-                activeGroupIdx = Number(i);
-
-                socket.emit('get-chat-messages', {
-                    group_id: chatGroups[activeGroupIdx].id
-                });
-
-                refreshChatGroupList();
-                refreshChatRoom();
+                goToRoomIdx(i);
             };
 
             groupListDiv.appendChild(a);
