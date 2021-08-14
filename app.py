@@ -261,8 +261,8 @@ def before_request():
             cursor.execute(activity_update_stmt, (now, user_id))
             session["user"]["last_activity"] = now
 
-@app.context_processor
-def inject_dict_for_all_templates():
+@app.route("/signed-in")
+def signed_in():
     if "user" in session:
         cursor.execute(signed_in_stmt, int(time.time()) - LOGOUT_TIMEOUT * 60)
         signed_in_users = []
@@ -280,9 +280,15 @@ def inject_dict_for_all_templates():
                 "last_activity": last_activity
             })
 
-        return { "signed_in_users": signed_in_users }
-
-    return {}
+        return render_template(
+            "signed-in.html",
+            signed_in_users=signed_in_users
+        )
+    else:
+        return render_template(
+            "signed-in.html",
+            signed_in_users=[]
+        )
 
 @app.route("/")
 def home():

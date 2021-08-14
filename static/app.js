@@ -1,9 +1,3 @@
-[].slice
-    .call(document.querySelectorAll('[data-bs-toggle="popover"]'))
-    .forEach(function (popoverTriggerEl) {
-        new bootstrap.Popover(popoverTriggerEl);
-    });
-
 const socket = io();
 
 socket.on('error-message', (error) => {
@@ -32,7 +26,6 @@ if (window.location.pathname === '/chat') {
 
     socket.on('chat-groups', (groups) => {
         chatGroups = groups;
-
 
         if (window.location.hash.slice(1,6) === 'group') {
             const joinGroupID = Number(window.location.hash.slice(7));
