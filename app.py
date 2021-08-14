@@ -2,7 +2,7 @@
 
 from datetime import timedelta
 from flask import Flask, render_template, redirect, request, session
-from flask_socketio import SocketIO, send, emit
+from flask_socketio import SocketIO, send, emit, join_room, leave_room
 from flask_wtf.csrf import CSRFProtect
 from flaskext.mysql import MySQL
 from hashlib import scrypt
@@ -41,6 +41,8 @@ app.config["MYSQL_DATABASE_PASSWORD"] = "ezezez"
 app.config["MYSQL_DATABASE_DB"] = "bank"
 app.config["MYSQL_DATABASE_HOST"] = "localhost"
 
+# https://blog.paradoxis.nl/defeating-flasks-session-management-65706ba9d3ce
+# change this in production:
 app.config["SECRET_KEY"] = b"secret"
 
 #app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=LOGOUT_TIMEOUT)
@@ -125,9 +127,15 @@ WHERE `group_id` = %s AND `user_id` != %s
 """
 
 group_messages_stmt = """
-SELECT `user_id`, `message`, `date`
+SELECT `bank_users`.`username`, `message`, `date`
 FROM `bank_chat_messages`
+LEFT JOIN `bank_users` ON `bank_users`.`id` = `bank_chat_messages`.`user_id`
 WHERE `group_id` = %s
+"""
+
+add_message_stmt = """
+INSERT INTO `bank_chat_messages` (`group_id`, `user_id`, `message`, `date`)
+VALUES (%s, %s, %s, %s)
 """
 
 last_global_update = 0
@@ -541,6 +549,14 @@ def chat():
         user=session["user"]
     )
 
+@socketio.on('connect')
+def on_connect():
+    if "user" not in session:
+        return
+
+    for group_id in session["user"]["group_ids"]:
+        join_room("group-" + str(group_id))
+
 @socketio.on('get-chat-groups')
 def on_get_chat_groups(json):
     user_id = session["user"]["id"]
@@ -558,6 +574,35 @@ def on_get_chat_groups(json):
 def on_get_chat_messages(json):
     group_id = json["group_id"]
     emit('chat-messages', get_group_messages(group_id))
+
+@socketio.on('send-message')
+def on_send_chat_messages(json):
+    group_id = json["group_id"]
+
+    # trying to send message to a group they aren't in
+    if group_id not in session["user"]["group_ids"]:
+        return
+
+    user_id = session["user"]["id"]
+    message = json["message"].strip()
+    now = int(time.time())
+
+    cursor.execute(
+        add_message_stmt,
+        (group_id, user_id, message, now)
+    )
+
+    emit(
+        'chat-message',
+        {
+            "group_id": group_id,
+            "user": session["user"]["username"],
+            "message": message,
+            "date": now
+        },
+        broadcast=True,
+        to="group-" + str(group_id)
+    )
 
 if __name__ == '__main__':
     socketio.run(app)

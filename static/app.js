@@ -7,6 +7,9 @@
 const socket = io();
 
 if (window.location.pathname === '/chat') {
+    // { groupID: unread }
+    const unreadGroupds = {};
+
     // [ { id, users } ]
     let chatGroups = [];
 
@@ -19,7 +22,6 @@ if (window.location.pathname === '/chat') {
 
     socket.on('chat-groups', (groups) => {
         chatGroups = groups;
-        console.log(chatGroups);
         refreshChatGroupList();
     });
 
@@ -28,12 +30,23 @@ if (window.location.pathname === '/chat') {
         refreshChatRoom();
     });
 
+    socket.on('chat-message', (message) => {
+        console.log('got message', message);
+        const activeGroup = chatGroups[activeGroupIdx];
+
+        if (activeGroup && activeGroup.id == message.group_id) {
+            addMessage(message);
+        }
+    });
+
     let activeGroupIdx = -1;
 
     const chatWithInput = document.getElementById('chat-with');
 
     chatWithInput.onkeyup = (e) => {
-        if (e.key === 'Enter') {
+        const username = chatWithInput.value.trim();
+
+        if (e.key === 'Enter' && username.length) {
             console.log('open new chat with username');
         }
     };
@@ -78,8 +91,7 @@ if (window.location.pathname === '/chat') {
 
         const span = document.createElement('span');
 
-        span.innerHTML =
-            `<strong>${user}</strong> <em>(${date.toLocaleString()})</em>:`;
+        span.innerHTML = `<strong>${user}</strong> <em>(${date.toLocaleString()})</em>:`;
 
         const p = document.createElement('p');
         p.innerText = message;
@@ -124,11 +136,20 @@ if (window.location.pathname === '/chat') {
     const messageInput = document.getElementById('message');
 
     messageInput.onkeyup = (e) => {
-        if (e.key === 'Enter') {
-            console.log('send message');
+        const message = messageInput.value.trim();
+
+        if (e.key === 'Enter' && message.length) {
+            socket.emit('send-message', {
+                group_id: chatGroups[activeGroupIdx].id,
+                message
+            });
+
+            messageInput.value = '';
         }
     };
-
-    //refreshChatGroupList();
-    //refreshChatRoom();
+} else {
+    // notification
+    socket.on('chat-message', (message) => {
+        console.log('got message', message);
+    });
 }
