@@ -163,6 +163,12 @@ SET `last_message_read` = %s
 WHERE `user_id` = %s AND `group_id` = %s
 """
 
+inc_read_stmt = """
+UPDATE `bank_chat_group_users`
+SET `last_message_read` = `last_message_read` + 1
+WHERE `user_id` = %s AND `group_id` = %s
+"""
+
 total_msg_stmt = """
 SELECT COUNT(1) FROM `bank_chat_messages` WHERE `group_id` = %s
 """
@@ -602,11 +608,15 @@ def emit_chat_groups(session):
     chat_groups = []
 
     for group_id in get_group_ids(user_id):
+        cursor.execute(unread_msg_stmt, (group_id, group_id, user_id))
+        unread = cursor.fetchone()[0]
+
         join_room("group-" + str(group_id))
 
         chat_groups.append({
             "id": group_id,
-            "users": get_group_users(group_id, user_id)
+            "users": get_group_users(group_id, user_id),
+            "unread": unread
         })
 
     emit("chat-groups", chat_groups)
@@ -627,12 +637,12 @@ def on_get_chat_messages(json):
 @socketio.on('send-message')
 def on_send_chat_messages(json):
     group_id = json["group_id"]
+    user_id = session["user"]["id"]
 
     # trying to send message to a group they aren't in
-    if group_id not in get_group_ids(session["user"]["id"]):
+    if group_id not in get_group_ids(user_id):
         return
 
-    user_id = session["user"]["id"]
     message = json["message"].strip()
     now = int(time.time())
 
@@ -794,6 +804,16 @@ def on_total_unread(json):
         total_unread += cursor.fetchone()[0]
 
     emit('total-unread', total_unread)
+
+@socketio.on('inc-unread')
+def on_inc_read(json):
+    user_id = session["user"]["id"]
+    group_id = json["group_id"]
+
+    if group_id not in get_group_ids(user_id):
+        return
+
+    cursor.execute(inc_read_stmt, (user_id, group_id))
 
 if __name__ == '__main__':
     socketio.run(app)

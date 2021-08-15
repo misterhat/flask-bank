@@ -1,12 +1,12 @@
 const socket = io();
 
-const badge = document.getElementById('unread-badge');
+const totalBadge = document.getElementById('unread-badge');
 let totalUnread = 0;
 
-function updateBadge() {
-    if (totalUnread > 0) {
+function updateBadge(badge, unread) {
+    if (unread > 0) {
         badge.style.display = 'inline-block';
-        badge.innerText = totalUnread;
+        badge.innerText = unread;
     } else {
         badge.style.display = 'none';
     }
@@ -18,18 +18,15 @@ socket.on('error-message', (error) => {
 
 socket.on('total-unread', (total) => {
     totalUnread += total;
-    updateBadge();
+    updateBadge(totalBadge, totalUnread);
 });
 
 if (window.location.pathname === '/chat') {
-    badge.style.display = 'none';
+    totalBadge.style.display = 'none';
 
     // state variables:
 
-    // { groupID: unread }
-    const unreadGroups = {};
-
-    // [ { id, users } ]
+    // [ { id, users, unread } ]
     let chatGroups = [];
 
     let activeGroupIdx = -1;
@@ -45,7 +42,6 @@ if (window.location.pathname === '/chat') {
 
     socket.on('connect', () => {
         socket.emit('get-chat-groups', {});
-        //socket.emit('get-total-unread', {});
     });
 
     socket.on('redirect', (loc) => {
@@ -108,11 +104,19 @@ if (window.location.pathname === '/chat') {
     });
 
     socket.on('chat-message', (message) => {
-        const activeGroup = getActiveGroup();
+        const active = getActiveGroup();
 
-        if (activeGroup && activeGroup.id == message.group_id) {
+        if (active && active.id == message.group_id) {
             chatMessages.push(message);
             addMessage(message);
+            socket.emit('inc-unread', { group_id: active.id });
+        } else {
+            const badge = document.getElementById(
+                `badge-${message.group_id}`
+            );
+
+            let unread = Number(badge.innerText) || 0;
+            updateBadge(badge, unread + 1);
         }
     });
 
@@ -142,12 +146,21 @@ if (window.location.pathname === '/chat') {
             }
 
             // 👤 👥
-            a.innerText = group.users.join(', ');
+            a.innerText = group.users.join(', ') + ' ';
             a.href = `#group-${group.id}`;
 
             a.onclick = () => {
                 goToRoomIdx(i);
             };
+
+            if (Number(i) !== activeGroupIdx) {
+                const span = document.createElement('span');
+                span.className = 'badge bg-success';
+                span.id = `badge-${group.id}`;
+                updateBadge(span, group.unread);
+
+                a.appendChild(span);
+            }
 
             groupListDiv.appendChild(a);
         }
@@ -183,7 +196,7 @@ if (window.location.pathname === '/chat') {
 
         for (const user of active.users) {
             const li = document.createElement('li');
-            li.innerText = '👤 ' + user;
+            li.innerText = '👤 ' + user + ' ';
             usersUl.appendChild(li);
         }
     };
@@ -301,6 +314,6 @@ if (window.location.pathname === '/chat') {
         notificationToast.show();
 
         totalUnread += 1;
-        updateBadge();
+        updateBadge(totalBadge, totalUnread);
     });
 }
