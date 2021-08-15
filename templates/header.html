@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Bank - {{ page }}</title>
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css"
@@ -25,7 +25,17 @@
           <li class="nav-item">
             <a class="nav-link" href="/transfer">Transfer</a>
           </li>
-          <li class="nav-item"><a class="nav-link" href="/chat">Chat</a></li>
+          <li class="nav-item">
+            <a class="nav-link" href="/chat">
+              Chat&nbsp;
+              <span
+                class="badge bg-success"
+                id="unread-badge"
+                style="display: none;"
+                title="Unread messages"
+              ></span>
+            </a>
+          </li>
         </ul>
         {% if user %}
         <span class="text-light" href="/login">

@@ -158,8 +158,19 @@ delete_group_stmt = "DELETE FROM `bank_chat_groups` WHERE `id` = %s"
 delete_messages_stmt = "DELETE FROM `bank_chat_messages` WHERE `group_id` = %s"
 
 update_read_stmt = """
-UPDATE `bank_chat_group_users` (`last_message_read`) VALUES (%s)
-WHERE `user_id` = %s
+UPDATE `bank_chat_group_users`
+SET `last_message_read` = %s
+WHERE `user_id` = %s AND `group_id` = %s
+"""
+
+total_msg_stmt = """
+SELECT COUNT(1) FROM `bank_chat_messages` WHERE `group_id` = %s
+"""
+
+unread_msg_stmt = """
+SELECT (""" + total_msg_stmt + """) - `last_message_read`
+FROM `bank_chat_group_users`
+WHERE `group_id` = %s AND `user_id` = %s
 """
 
 last_global_update = 0
@@ -606,7 +617,11 @@ def on_get_chat_groups(json):
 
 @socketio.on('get-chat-messages')
 def on_get_chat_messages(json):
+    user_id = session["user"]["id"]
     group_id = json["group_id"]
+    cursor.execute(total_msg_stmt, group_id)
+    total_msgs = cursor.fetchone()[0]
+    cursor.execute(update_read_stmt, (total_msgs, user_id, group_id))
     emit("chat-messages", get_group_messages(group_id))
 
 @socketio.on('send-message')
@@ -722,8 +737,9 @@ def on_leave_group(json):
 @socketio.on('invite-group')
 def on_invite_group(json):
     group_id = json["group_id"]
+    user_id = session["user"]["id"]
 
-    if group_id not in get_group_ids(session["user"]["id"]):
+    if group_id not in get_group_ids(user_id):
         return
 
     username = json["username"].strip()
@@ -735,7 +751,6 @@ def on_invite_group(json):
         emit("error-message", "User '" + username + "' does not exist.")
         return
 
-    user_id = session["user"]["id"]
     other_user_id = res[0]
 
     if other_user_id == user_id:
@@ -765,6 +780,20 @@ def on_invite_group(json):
 
     emit("refresh-chat-groups", to="group-" + str(group_id))
     emit("refresh-chat-groups", other_user_id, broadcast=True)
+
+@socketio.on('get-total-unread')
+def on_total_unread(json):
+    if "user" not in session:
+        return
+
+    user_id = session["user"]["id"]
+    total_unread = 0
+
+    for group_id in get_group_ids(user_id):
+        cursor.execute(unread_msg_stmt, (group_id, group_id, user_id))
+        total_unread += cursor.fetchone()[0]
+
+    emit('total-unread', total_unread)
 
 if __name__ == '__main__':
     socketio.run(app)

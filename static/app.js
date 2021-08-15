@@ -1,14 +1,33 @@
 const socket = io();
 
+const badge = document.getElementById('unread-badge');
+let totalUnread = 0;
+
+function updateBadge() {
+    if (totalUnread > 0) {
+        badge.style.display = 'inline-block';
+        badge.innerText = totalUnread;
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
 socket.on('error-message', (error) => {
     alert(error);
 });
 
+socket.on('total-unread', (total) => {
+    totalUnread += total;
+    updateBadge();
+});
+
 if (window.location.pathname === '/chat') {
+    badge.style.display = 'none';
+
     // state variables:
 
     // { groupID: unread }
-    const unreadGroupds = {};
+    const unreadGroups = {};
 
     // [ { id, users } ]
     let chatGroups = [];
@@ -26,6 +45,7 @@ if (window.location.pathname === '/chat') {
 
     socket.on('connect', () => {
         socket.emit('get-chat-groups', {});
+        //socket.emit('get-total-unread', {});
     });
 
     socket.on('redirect', (loc) => {
@@ -264,6 +284,10 @@ if (window.location.pathname === '/chat') {
     const notification = document.getElementById('message-notification');
     const notificationToast = new bootstrap.Toast(notification);
 
+    socket.on('connect', () => {
+        socket.emit('get-total-unread', {});
+    });
+
     // notification
     socket.on('chat-message', ({ group_id, user, message }) => {
         notification.querySelector('.me-auto').innerText =
@@ -275,5 +299,8 @@ if (window.location.pathname === '/chat') {
           `/chat#group-${group_id}`;
 
         notificationToast.show();
+
+        totalUnread += 1;
+        updateBadge();
     });
 }
