@@ -380,8 +380,7 @@ def login():
                 session["user"] = {
                     "id": id,
                     "username": username,
-                    "last_activity": int(time.time()),
-                    "group_ids": get_group_ids(id)
+                    "last_activity": int(time.time())
                 }
 
                 session.permanent = True
@@ -568,8 +567,6 @@ def chat():
     if "user" not in session:
         return redirect("/login", 302)
 
-    session["user"]["group_ids"] = get_group_ids(session["user"]["id"])
-
     return render_template(
         "chat.html",
         page="Chat",
@@ -589,10 +586,12 @@ def emit_chat_groups(session):
     chat_groups = []
 
     for group_id in get_group_ids(user_id):
-        group = {}
-        group["id"] = group_id
-        group["users"] = get_group_users(group_id, user_id)
-        chat_groups.append(group)
+        join_room("group-" + str(group_id))
+
+        chat_groups.append({
+            "id": group_id,
+            "users": get_group_users(group_id, user_id)
+        })
 
     emit("chat-groups", chat_groups)
 
@@ -610,7 +609,7 @@ def on_send_chat_messages(json):
     group_id = json["group_id"]
 
     # trying to send message to a group they aren't in
-    if group_id not in session["user"]["group_ids"]:
+    if group_id not in get_group_ids(session["user"]["id"]):
         return
 
     user_id = session["user"]["id"]
@@ -669,15 +668,15 @@ def on_create_group(json):
 
     join_room("group-" + str(group_id))
     emit("redirect", "/chat#group-" + str(group_id))
+    emit("refresh-chat-groups", other_user_id, broadcast=True)
 
 @socketio.on('leave-group')
 def on_leave_group(json):
     group_id = json["group_id"]
-
-    if group_id not in session["user"]["group_ids"]:
-        return
-
     user_id = session["user"]["id"]
+
+    if group_id not in get_group_ids(user_id):
+        return
 
     leave_room("group-" + str(group_id))
 
@@ -691,8 +690,6 @@ def on_leave_group(json):
         cursor.execute(leave_group_user_stmt, (group_id, other_user_id))
         cursor.execute(delete_group_stmt, group_id)
         cursor.execute(delete_messages_stmt, group_id)
-        emit("refresh-chat-groups", to="group-" + str(group_id))
-        #emit("redirect", "/chat", to="group-" + str(group_id))
     else:
         username = session["user"]["username"]
         message = username + " has left the room."
@@ -715,12 +712,13 @@ def on_leave_group(json):
         )
 
     emit("redirect", "/chat")
+    emit("refresh-chat-groups", broadcast=True)
 
 @socketio.on('invite-group')
 def on_invite_group(json):
     group_id = json["group_id"]
 
-    if group_id not in session["user"]["group_ids"]:
+    if group_id not in get_group_ids(session["user"]["id"]):
         return
 
     username = json["username"].strip()
@@ -736,24 +734,32 @@ def on_invite_group(json):
     other_user_id = res[0]
 
     if other_user_id == user_id:
-        emit("error-message", "Cannot invite yourself to a conversation.")
+        emit("error-message", "Cannot invite yourself to a room.")
         return
 
     cursor.execute(add_group_user_stmt, (group_id, other_user_id, 0))
 
+    message = "Added " + username + " to the room."
     now = int(time.time())
 
     cursor.execute(
         add_message_stmt,
-        (group_id, None, "Added " + username + " to conversation.", now)
+        (group_id, None, message, now)
     )
 
-    # TODO conditional reload - reload them on the correct page
-    #emit(
-    #    "redirect",
-    #    "/chat#group-" + str(group_id),
-    #    to="group-" + str(group_id)
-    #)
+    emit(
+        "chat-message",
+        {
+            "group_id": group_id,
+            "user": None,
+            "message": message,
+            "date": now
+        },
+        to="group-" + str(group_id)
+    )
+
+    emit("refresh-chat-groups", to="group-" + str(group_id))
+    emit("refresh-chat-groups", other_user_id, broadcast=True)
 
 if __name__ == '__main__':
     socketio.run(app)

@@ -34,8 +34,14 @@ if (window.location.pathname === '/chat') {
         window.location.reload();
     });
 
-    socket.on('refresh-chat-groups', () => {
-        socket.emit('get-chat-groups', {});
+    socket.on('refresh-chat-groups', (userID) => {
+        if (userID) {
+            if (userID === window.BANK_USER_ID) {
+                socket.emit('get-chat-groups', {});
+            }
+        } else {
+            socket.emit('get-chat-groups', {});
+        }
     });
 
     socket.on('chat-groups', (groups) => {
@@ -52,11 +58,10 @@ if (window.location.pathname === '/chat') {
                     newIdx = Number(i);
                     break;
                 }
-
-                activeGroupIdx = newIdx;
-                active = getActiveGroup();
-                refreshChatRoom();
             }
+
+            activeGroupIdx = newIdx;
+            active = getActiveGroup();
         } else if (window.location.hash.slice(1,6) === 'group') {
             const joinGroupID = Number(window.location.hash.slice(7));
 
@@ -67,8 +72,10 @@ if (window.location.pathname === '/chat') {
                 }
             }
 
-            window.location.hash = '';
+            //window.location.hash = '';
         }
+
+        refreshChatRoom();
 
         if (active) {
             refreshChatUsers();
@@ -86,6 +93,7 @@ if (window.location.pathname === '/chat') {
         const activeGroup = getActiveGroup();
 
         if (activeGroup && activeGroup.id == message.group_id) {
+            chatMessages.push(message);
             addMessage(message);
         }
     });
@@ -106,8 +114,6 @@ if (window.location.pathname === '/chat') {
 
     const refreshChatGroupList = () => {
         groupListDiv.innerHTML = '';
-
-        console.log(chatGroups);
 
         for (const [i, group] of Object.entries(chatGroups)) {
             const a = document.createElement('a');
@@ -152,6 +158,10 @@ if (window.location.pathname === '/chat') {
         usersUl.innerHTML = '';
 
         const active = getActiveGroup();
+
+        if (!active) {
+            return;
+        }
 
         for (const user of active.users) {
             const li = document.createElement('li');
