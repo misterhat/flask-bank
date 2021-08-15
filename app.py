@@ -584,21 +584,21 @@ def on_connect():
     for group_id in session["user"]["group_ids"]:
         join_room("group-" + str(group_id))
 
-@socketio.on('get-chat-groups')
-def on_get_chat_groups(json):
+def emit_chat_groups(session):
     user_id = session["user"]["id"]
     chat_groups = []
 
-    print('getting chat groups ')
-    print(session['user']['group_ids'])
-
-    for group_id in session["user"]["group_ids"]:
+    for group_id in get_group_ids(user_id):
         group = {}
         group["id"] = group_id
         group["users"] = get_group_users(group_id, user_id)
         chat_groups.append(group)
 
     emit("chat-groups", chat_groups)
+
+@socketio.on('get-chat-groups')
+def on_get_chat_groups(json):
+    emit_chat_groups(session)
 
 @socketio.on('get-chat-messages')
 def on_get_chat_messages(json):
@@ -680,6 +680,7 @@ def on_leave_group(json):
     user_id = session["user"]["id"]
 
     leave_room("group-" + str(group_id))
+
     cursor.execute(leave_group_user_stmt, (group_id, user_id))
 
     cursor.execute(count_group_user_stmt, (group_id))
@@ -690,7 +691,28 @@ def on_leave_group(json):
         cursor.execute(leave_group_user_stmt, (group_id, other_user_id))
         cursor.execute(delete_group_stmt, group_id)
         cursor.execute(delete_messages_stmt, group_id)
-        emit("redirect", "/chat", to="group-" + str(group_id))
+        emit("refresh-chat-groups", to="group-" + str(group_id))
+        #emit("redirect", "/chat", to="group-" + str(group_id))
+    else:
+        username = session["user"]["username"]
+        message = username + " has left the room."
+        now = int(time.time())
+
+        cursor.execute(
+            add_message_stmt,
+            (group_id, None, message, now)
+        )
+
+        emit(
+            "chat-message",
+            {
+                "group_id": group_id,
+                "user": None,
+                "message": message,
+                "date": now
+            },
+            to="group-" + str(group_id)
+        )
 
     emit("redirect", "/chat")
 
@@ -727,12 +749,11 @@ def on_invite_group(json):
     )
 
     # TODO conditional reload - reload them on the correct page
-
-    emit(
-        "redirect",
-        "/chat#group-" + str(group_id),
-        to="group-" + str(group_id)
-    )
+    #emit(
+    #    "redirect",
+    #    "/chat#group-" + str(group_id),
+    #    to="group-" + str(group_id)
+    #)
 
 if __name__ == '__main__':
     socketio.run(app)
