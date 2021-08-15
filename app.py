@@ -179,6 +179,11 @@ FROM `bank_chat_group_users`
 WHERE `group_id` = %s AND `user_id` = %s
 """
 
+is_owner_stmt = """
+SELECT `is_owner` FROM `bank_chat_group_users`
+WHERE `user_id` = %s AND `group_id` = %s
+"""
+
 last_global_update = 0
 
 # use this to create new passwords
@@ -623,19 +628,31 @@ def emit_chat_groups(session):
 
 @socketio.on('get-chat-groups')
 def on_get_chat_groups(json):
+    if "user" not in session:
+        return
+
     emit_chat_groups(session)
 
 @socketio.on('get-chat-messages')
 def on_get_chat_messages(json):
+    if "user" not in session:
+        return
+
     user_id = session["user"]["id"]
     group_id = json["group_id"]
+
     cursor.execute(total_msg_stmt, group_id)
     total_msgs = cursor.fetchone()[0]
+
     cursor.execute(update_read_stmt, (total_msgs, user_id, group_id))
+
     emit("chat-messages", get_group_messages(group_id))
 
 @socketio.on('send-message')
 def on_send_chat_messages(json):
+    if "user" not in session:
+        return
+
     group_id = json["group_id"]
     user_id = session["user"]["id"]
 
@@ -664,6 +681,9 @@ def on_send_chat_messages(json):
 
 @socketio.on('create-group')
 def on_create_group(json):
+    if "user" not in session:
+        return
+
     message = None
 
     username = json["username"].strip()
@@ -702,6 +722,9 @@ def on_create_group(json):
 
 @socketio.on('leave-group')
 def on_leave_group(json):
+    if "user" not in session:
+        return
+
     group_id = json["group_id"]
     user_id = session["user"]["id"]
 
@@ -746,6 +769,9 @@ def on_leave_group(json):
 
 @socketio.on('invite-group')
 def on_invite_group(json):
+    if "user" not in session:
+        return
+
     group_id = json["group_id"]
     user_id = session["user"]["id"]
 
@@ -807,13 +833,72 @@ def on_total_unread(json):
 
 @socketio.on('inc-unread')
 def on_inc_read(json):
-    user_id = session["user"]["id"]
+    if "user" not in session:
+        return
+
     group_id = json["group_id"]
+    user_id = session["user"]["id"]
 
     if group_id not in get_group_ids(user_id):
         return
 
     cursor.execute(inc_read_stmt, (user_id, group_id))
+
+@socketio.on('kick-group')
+def on_kick_group(json):
+    if "user" not in session:
+        return
+
+    user_id = session["user"]["id"]
+    group_id = json["group_id"]
+
+    cursor.execute(is_owner_stmt, (user_id, group_id))
+    is_owner = cursor.fetchone()[0]
+
+    if is_owner == 0:
+        emit("error-message", "You are not the owner of this chatroom.")
+        return
+
+    users = get_group_users(group_id, user_id)
+
+    if len(users) == 1:
+        emit(
+            "error-message",
+            "Only two users left - leave the room instead."
+        )
+        return
+
+    username = json["user"]
+
+    if username not in users:
+        return
+
+    cursor.execute(user_id_stmt, username)
+    res = cursor.fetchone()
+
+    other_user_id = res[0]
+    cursor.execute(leave_group_user_stmt, (group_id, other_user_id))
+
+    message = username + " has been kicked."
+    now = int(time.time())
+
+    cursor.execute(
+        add_message_stmt,
+        (group_id, None, message, now)
+    )
+
+    emit(
+        "chat-message",
+        {
+            "group_id": group_id,
+            "user": None,
+            "message": message,
+            "date": now
+        },
+        to="group-" + str(group_id)
+    )
+
+    emit("refresh-chat-groups", broadcast=True)
 
 if __name__ == '__main__':
     socketio.run(app)

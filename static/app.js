@@ -196,7 +196,24 @@ if (window.location.pathname === '/chat') {
 
         for (const user of active.users) {
             const li = document.createElement('li');
+            li.style.margin = '8px 0 8px 0';
             li.innerText = '👤 ' + user + ' ';
+
+            const button = document.createElement('button');
+            button.className = 'btn btn-danger btn-sm';
+            button.innerText = 'Kick';
+
+            button.onclick = () => {
+                if (confirm(`Are you sure you wish to kick ${user}?`)) {
+                    socket.emit('kick-group', {
+                        group_id: active.id,
+                        user
+                    });
+                }
+            };
+
+            li.appendChild(button);
+
             usersUl.appendChild(li);
         }
     };
