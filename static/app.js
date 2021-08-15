@@ -71,8 +71,6 @@ if (window.location.pathname === '/chat') {
                     break;
                 }
             }
-
-            //window.location.hash = '';
         }
 
         refreshChatRoom();
@@ -263,8 +261,19 @@ if (window.location.pathname === '/chat') {
         }
     };
 } else {
+    const notification = document.getElementById('message-notification');
+    const notificationToast = new bootstrap.Toast(notification);
+
     // notification
-    socket.on('chat-message', (message) => {
-        console.log('got message', message);
+    socket.on('chat-message', ({ group_id, user, message }) => {
+        notification.querySelector('.me-auto').innerText =
+          `Message from ${user}`;
+
+        notification.querySelector('.toast-message').innerText = message;
+
+        notification.querySelector('.link-primary').href =
+          `/chat#group-${group_id}`;
+
+        notificationToast.show();
     });
 }

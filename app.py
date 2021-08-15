@@ -157,6 +157,11 @@ delete_group_stmt = "DELETE FROM `bank_chat_groups` WHERE `id` = %s"
 
 delete_messages_stmt = "DELETE FROM `bank_chat_messages` WHERE `group_id` = %s"
 
+update_read_stmt = """
+UPDATE `bank_chat_group_users` (`last_message_read`) VALUES (%s)
+WHERE `user_id` = %s
+"""
+
 last_global_update = 0
 
 # use this to create new passwords
@@ -578,7 +583,7 @@ def on_connect():
     if "user" not in session:
         return
 
-    for group_id in session["user"]["group_ids"]:
+    for group_id in get_group_ids(session["user"]["id"]):
         join_room("group-" + str(group_id))
 
 def emit_chat_groups(session):
