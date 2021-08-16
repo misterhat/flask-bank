@@ -56,6 +56,10 @@ let popovers = [];
 const signedInDiv = document.getElementById('signed-in');
 
 async function updateUsers() {
+    if (!signedInDiv) {
+        return;
+    }
+
     signedInDiv.innerHTML = await (await fetch('/signed-in')).text();
 
     popovers.forEach(popover => popover.dispose());

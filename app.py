@@ -290,24 +290,36 @@ def before_request():
             cursor.execute(activity_update_stmt, (now, user_id))
             session["user"]["last_activity"] = now
 
+def get_signed_in_users():
+    cursor.execute(signed_in_stmt, int(time.time()) - LOGOUT_TIMEOUT * 60)
+    signed_in_users = []
+
+    for row in cursor.fetchall():
+        last_activity = row[1]
+
+        if int(time.time()) - last_activity <= 60:
+            last_activity = "less than a minute ago"
+        else:
+            last_activity = timeago.format(row[1])
+
+        signed_in_users.append({
+            "username": row[0],
+            "last_activity": last_activity
+        })
+
+    return signed_in_users
+
+@app.context_processor
+def inject_dict_for_all_templates():
+    if "user" in session:
+        return { "signed_in_users": get_signed_in_users() }
+
+    return {}
+
 @app.route("/signed-in")
 def signed_in():
     if "user" in session:
-        cursor.execute(signed_in_stmt, int(time.time()) - LOGOUT_TIMEOUT * 60)
-        signed_in_users = []
-
-        for row in cursor.fetchall():
-            last_activity = row[1]
-
-            if int(time.time()) - last_activity <= 60:
-                last_activity = "less than a minute ago"
-            else:
-                last_activity = timeago.format(row[1])
-
-            signed_in_users.append({
-                "username": row[0],
-                "last_activity": last_activity
-            })
+        signed_in_users = get_signed_in_users()
 
         return render_template(
             "signed-in.html",
@@ -622,7 +634,7 @@ def chat():
     )
 
 @socketio.on('connect')
-def on_connect():
+def on_connect(auth):
     if "user" not in session:
         return
 
