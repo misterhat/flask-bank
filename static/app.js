@@ -23,6 +23,23 @@ socket.on('total-unread', (total) => {
     updateBadge(totalBadge, totalUnread);
 });
 
+const notification = document.getElementById('message-notification');
+const notificationToast = new bootstrap.Toast(notification);
+
+socket.on('notification', (message) => {
+    notification.querySelector('.me-auto').innerText = 'Notification';
+    notification.querySelector('.toast-message').innerText = message;
+
+    const link = notification.querySelector('.link-primary');
+    link.href = '/';
+    link.textContent = 'Go to page.';
+
+    notificationToast.show();
+
+    totalUnread += 1;
+    updateBadge(totalBadge, totalUnread);
+});
+
 let timeout;
 
 function resetTimer() {
@@ -346,9 +363,6 @@ if (window.location.pathname === '/chat') {
         }
     };
 } else {
-    const notification = document.getElementById('message-notification');
-    const notificationToast = new bootstrap.Toast(notification);
-
     socket.on('connect', () => {
         socket.emit('get-total-unread', {});
     });
@@ -360,8 +374,9 @@ if (window.location.pathname === '/chat') {
 
         notification.querySelector('.toast-message').innerText = message;
 
-        notification.querySelector('.link-primary').href =
-          `/chat#group-${group_id}`;
+        const link = notification.querySelector('.link-primary');
+        link.href = `/chat#group-${group_id}`;
+        link.textContent = 'Go to conversation.';
 
         notificationToast.show();
 

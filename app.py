@@ -556,6 +556,8 @@ def transfer():
                     to_balance = get_balance(to_user_id)
                     to_balance += transfer_req
 
+                    reason = request.form["reason"].strip()
+
                     cursor.execute(withdraw_stmt, (transfer_req, user_id))
                     cursor.execute(deposit_stmt, (transfer_req, to_user_id))
 
@@ -567,10 +569,18 @@ def transfer():
                             balance,
                             to_balance,
                             to_user_id,
-                            request.form["reason"].strip(),
+                            reason,
                             TRANSFER,
                             int(time.time())
                         )
+                    )
+
+                    socketio.emit(
+                        "notification",
+                        session["user"]["username"] + " transferred you " +
+                            format_currency(transfer_req) + " (reason: " +
+                            reason + ").",
+                        to="user-" + str(to_user_id)
                     )
 
                     message_type = "success"
@@ -616,8 +626,12 @@ def on_connect():
     if "user" not in session:
         return
 
-    for group_id in get_group_ids(session["user"]["id"]):
+    user_id = session["user"]["id"]
+
+    for group_id in get_group_ids(user_id):
         join_room("group-" + str(group_id))
+
+    join_room("user-" + str(user_id))
 
 def emit_chat_groups(session):
     user_id = session["user"]["id"]
