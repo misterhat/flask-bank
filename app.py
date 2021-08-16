@@ -184,6 +184,8 @@ SELECT `is_owner` FROM `bank_chat_group_users`
 WHERE `user_id` = %s AND `group_id` = %s
 """
 
+username_stmt = "SELECT `username` FROM `bank_users`"
+
 last_global_update = 0
 
 # use this to create new passwords
@@ -594,10 +596,19 @@ def chat():
     if "user" not in session:
         return redirect("/login", 302)
 
+    usernames = []
+
+    cursor.execute(username_stmt)
+    res = cursor.fetchall()
+
+    for row in res:
+        usernames.append(row[0])
+
     return render_template(
         "chat.html",
         page="Chat",
-        user=session["user"]
+        user=session["user"],
+        usernames=usernames
     )
 
 @socketio.on('connect')

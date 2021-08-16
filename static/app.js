@@ -1,3 +1,5 @@
+const LOGOUT_TIMEOUT = 2;
+
 const socket = io();
 
 const totalBadge = document.getElementById('unread-badge');
@@ -20,6 +22,39 @@ socket.on('total-unread', (total) => {
     totalUnread += total;
     updateBadge(totalBadge, totalUnread);
 });
+
+let timeout;
+
+function resetTimer() {
+    clearTimeout(timeout);
+
+    timeout = setTimeout(() => {
+        window.location = '/logout';
+    }, 1000 * 60 * LOGOUT_TIMEOUT);
+}
+
+window.onmousemove = resetTimer;
+
+let popovers = [];
+const signedInDiv = document.getElementById('signed-in');
+
+async function updateUsers() {
+    signedInDiv.innerHTML = await (await fetch('/signed-in')).text();
+
+    popovers.forEach(popover => popover.dispose());
+
+    popovers = [].slice
+        .call(document.querySelectorAll('[data-bs-toggle="popover"]'))
+        .map(function (popoverTriggerEl) {
+            return new bootstrap.Popover(popoverTriggerEl);
+        });
+}
+
+setInterval(() => {
+    updateUsers();
+}, 5000);
+
+updateUsers();
 
 if (window.location.pathname === '/chat') {
     totalBadge.style.display = 'none';

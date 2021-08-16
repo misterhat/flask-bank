@@ -7,6 +7,7 @@
       class="form-control"
       placeholder="Enter username..."
       id="chat-with"
+      list="usernames"
     />
     <br />
     <div class="list-group" id="group-list"></div>
@@ -49,6 +50,7 @@
           class="form-control"
           placeholder="Enter username..."
           id="invite"
+          list="usernames"
         />
         <br />
         <button class="btn btn-danger" id="leave-group">Leave Group</button>
@@ -56,5 +58,10 @@
     </div>
   </div>
 </div>
+<datalist id="usernames">
+  {% for username in usernames %}
+  <option value="{{ username }}" />
+  {% endfor %}
+</datalist>
 <script>window.BANK_USER_ID = {{ user["id"] }};</script>
 {% include 'footer.html' %}
